@@ -2,68 +2,140 @@
 # -*- coding: utf-8 -*-
 """
 一键安装主程序
-提供菜单选择和工具调度
 """
 
 import os
 import sys
 import importlib.util
 
-# 添加 tools 目录到路径
-TOOLS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tools')
-sys.path.insert(0, TOOLS_DIR)
-
-from base import BaseTool, PrintUtils, ChooseTask
+# 配置
+URL_PREFIX = "https://raw.githubusercontent.com/SHUI269/Mini_tool/main/"
+TOOLS_DIR = "/tmp/myinstall/tools"
 
 # 工具注册表
-TOOLS_REGISTRY = [
-    {"name": "退出", "file": None},
-    {"name": "一键安装:ROS (支持ROS1/ROS2)", "file": "tool_install_ros.py"},
-    {"name": "一键配置:系统源 (清华/阿里/中科大)", "file": "tool_config_source.py"},
-    {"name": "一键安装:Docker", "file": "tool_install_docker.py"},
-]
+TOOLS = {
+    0: {"tip": "退出", "type": "quit", "tool": None},
+    1: {"tip": "一键安装:ROS (支持ROS1/ROS2)", "type": "ROS", "tool": "tools/tool_install_ros.py"},
+    2: {"tip": "一键配置:系统源 (更换国内镜像)", "type": "配置", "tool": "tools/tool_config_source.py"},
+    3: {"tip": "一键安装:Docker", "type": "软件", "tool": "tools/tool_install_docker.py"},
+    4: {"tip": "一键安装:VSCode", "type": "软件", "tool": "tools/tool_install_vscode.py"},
+}
 
-def load_tool(tool_info):
-    """动态加载工具模块"""
-    if not tool_info["file"]:
-        return None
-    
-    path = os.path.join(TOOLS_DIR, tool_info["file"])
-    if not os.path.exists(path):
-        PrintUtils.print_warning(f"工具文件不存在: {tool_info['file']}")
-        return None
+# 按类型分组
+TYPE_NAMES = {
+    "ROS": "🤖 ROS相关",
+    "软件": "💻 常用软件",
+    "配置": "⚙️ 配置工具",
+}
+
+
+def download_file(url, output):
+    """下载文件"""
+    print(f"  ↓ 下载 {os.path.basename(output)}...")
+    ret = os.system(f"wget -q {url} -O {output}")
+    return ret == 0
+
+
+def download_tool(tool_path):
+    """下载工具模块"""
+    url = URL_PREFIX + tool_path
+    output = os.path.join("/tmp/myinstall", tool_path)
+    os.makedirs(os.path.dirname(output), exist_ok=True)
+    return download_file(url, output)
+
+
+def run_tool(tool_path):
+    """动态加载并运行工具"""
+    full_path = os.path.join("/tmp/myinstall", tool_path)
+    if not os.path.exists(full_path):
+        print(f"[!] 工具文件不存在: {tool_path}")
+        return False
     
     try:
-        spec = importlib.util.spec_from_file_location("tool", path)
+        spec = importlib.util.spec_from_file_location("tool", full_path)
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
-        return mod.Tool() if hasattr(mod, 'Tool') else None
+        if hasattr(mod, 'Tool'):
+            tool = mod.Tool()
+            tool.run()
+            return True
     except Exception as e:
-        PrintUtils.print_error(f"加载工具失败: {str(e)}")
-        return None
+        print(f"[!] 运行工具出错: {e}")
+    return False
+
+
+def print_banner():
+    print("""
+╔══════════════════════════════════════════════════════╗
+║        欢迎使用一键安装工具                          ║
+║        人生苦短，三省吾身，省时省力省心!             ║
+╚══════════════════════════════════════════════════════╝
+    """)
+
+
+def print_menu():
+    """打印分类菜单"""
+    print("请选择要执行的任务：\n")
+    
+    # 按类型分组显示
+    current_type = None
+    for code, info in sorted(TOOLS.items()):
+        if info["type"] == "quit":
+            print(f"[{code}] {info['tip']}")
+            continue
+        
+        if info["type"] != current_type:
+            current_type = info["type"]
+            type_name = TYPE_NAMES.get(current_type, current_type)
+            print(f"\n--- {type_name} ---")
+        
+        print(f"[{code}] {info['tip']}")
+    
+    print("")
+
 
 def main():
-    PrintUtils.print_banner()
+    # 下载基础模块
+    print("[0/2] 下载基础模块...")
+    download_file(URL_PREFIX + "tools/base.py", os.path.join(TOOLS_DIR, "base.py"))
+    
+    # 下载主程序需要的其他文件...
+    
+    print_banner()
+    print_menu()
     
     while True:
-        options = [{"name": t["name"]} for t in TOOLS_REGISTRY]
-        choice = ChooseTask("请选择要执行的任务", options).run()
-        
-        if choice == 0:
-            PrintUtils.print_info("感谢使用，再见！")
+        try:
+            choice = input("请输入数字选择: ").strip()
+            code = int(choice)
+            
+            if code not in TOOLS:
+                print("无效选择，请重新输入")
+                continue
+            
+            tool_info = TOOLS[code]
+            
+            if tool_info["type"] == "quit":
+                print("感谢使用，再见！")
+                break
+            
+            print(f"\n>>> {tool_info['tip']}\n")
+            
+            # 下载并运行工具
+            if download_tool(tool_info["tool"]):
+                run_tool(tool_info["tool"])
+            else:
+                print("[!] 下载工具失败")
+            
+            print("\n" + "="*50)
+            input("按 Enter 键返回主菜单...")
+            print_banner()
+            print_menu()
+            
+        except (ValueError, KeyboardInterrupt, EOFError):
+            print("\n感谢使用，再见！")
             break
-        
-        tool = load_tool(TOOLS_REGISTRY[choice])
-        if tool:
-            try:
-                tool.run()
-            except Exception as e:
-                PrintUtils.print_error(f"工具执行出错: {str(e)}")
-        else:
-            PrintUtils.print_error("工具加载失败，请检查网络连接")
-        
-        print("\n" + "=" * 50)
-        input("按 Enter 键返回主菜单...")
+
 
 if __name__ == "__main__":
     main()
