@@ -1,0 +1,75 @@
+#!/bin/bash
+# ============================================================
+# 一键安装入口脚本
+# 用法:
+#   wget https://no-one-wu.github.io/my-installer/install -O myinstaller && . myinstaller
+#   curl -fsSL https://no-one-wu.github.io/my-installer/install -o myinstaller && . myinstaller
+# ============================================================
+
+set -e
+
+# 基础URL（替换为你的用户名和仓库名）
+BASE_URL="https://no-one-wu.github.io/my-installer"
+INSTALL_DIR="/tmp/myinstall_$(date +%s)"
+TOOLS_DIR="$INSTALL_DIR/tools"
+
+# 颜色
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+echo -e "${BLUE}========================================${NC}"
+echo -e "${GREEN}  欢迎使用一键安装工具${NC}"
+echo -e "${BLUE}========================================${NC}"
+echo ""
+
+# 创建临时目录
+rm -rf $INSTALL_DIR
+mkdir -p $TOOLS_DIR
+
+# 检查依赖
+echo -e "${YELLOW}[1/3] 检查系统依赖...${NC}"
+if ! command -v python3 &> /dev/null; then
+    echo -e "${RED}错误: 未找到 python3，请先安装${NC}"
+    exit 1
+fi
+
+# 安装Python依赖
+echo -e "${YELLOW}[2/3] 准备运行环境...${NC}"
+sudo apt-get update -qq 2>/dev/null || true
+sudo apt-get install -y -qq python3-distro python3-yaml curl wget 2>/dev/null || true
+
+# 下载核心文件
+echo -e "${YELLOW}[3/3] 下载安装工具...${NC}"
+
+wget -q "$BASE_URL/tools/base.py" -O "$TOOLS_DIR/base.py" || {
+    echo -e "${RED}下载失败，请检查网络连接${NC}"
+    exit 1
+}
+
+wget -q "$BASE_URL/install.py" -O "$INSTALL_DIR/install.py" || {
+    echo -e "${RED}下载主程序失败${NC}"
+    exit 1
+}
+
+# 下载工具模块
+TOOLS=("tool_install_ros.py" "tool_config_source.py" "tool_install_docker.py")
+for tool in "${TOOLS[@]}"; do
+    wget -q "$BASE_URL/tools/$tool" -O "$TOOLS_DIR/$tool" 2>/dev/null || true
+done
+
+echo -e "${GREEN}下载完成，启动安装程序...${NC}"
+echo ""
+
+# 运行主程序
+cd $INSTALL_DIR
+sudo python3 install.py
+
+# 清理
+rm -rf $INSTALL_DIR
+rm -f myinstaller 2>/dev/null || true
+
+echo ""
+echo -e "${GREEN}安装程序已退出${NC}"
