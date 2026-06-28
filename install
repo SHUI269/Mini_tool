@@ -9,7 +9,7 @@
 set -e
 
 # 基础URL（替换为你的用户名和仓库名）
-BASE_URL="https://no-one-wu.github.io/my-installer"
+BASE_URL="https://raw.githubusercontent.com/SHUI269/Mini_tool/main"
 INSTALL_DIR="/tmp/myinstall_$(date +%s)"
 TOOLS_DIR="$INSTALL_DIR/tools"
 
