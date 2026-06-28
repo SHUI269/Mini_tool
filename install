@@ -3,15 +3,9 @@
 # 一键安装入口脚本
 # 用法:
 #   wget https://raw.githubusercontent.com/SHUI269/Mini_tool/main/install -O myinstaller && . myinstaller
-#   curl -fsSL https://raw.githubusercontent.com/SHUI269/Mini_tool/main/install -o myinstaller && . myinstaller
 # ============================================================
 
 set -e
-
-# 基础URL（使用 raw.githubusercontent.com 直接访问文件内容）
-BASE_URL="https://raw.githubusercontent.com/SHUI269/Mini_tool/main"
-INSTALL_DIR="/tmp/myinstall_$(date +%s)"
-TOOLS_DIR="$INSTALL_DIR/tools"
 
 # 颜色
 RED='\033[0;31m'
@@ -20,14 +14,23 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
+# 基础URL
+BASE_URL="https://raw.githubusercontent.com/SHUI269/Mini_tool/main"
+INSTALL_DIR="/tmp/myinstall_$(date +%s)"
+TOOLS_DIR="$INSTALL_DIR/tools"
+
 echo -e "${BLUE}========================================${NC}"
 echo -e "${GREEN}  欢迎使用一键安装工具${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 
-# 创建临时目录
-rm -rf $INSTALL_DIR
-mkdir -p $TOOLS_DIR
+# ===== 修复：禁用 CD-ROM 源 =====
+echo -e "${YELLOW}[0/3] 禁用 CD-ROM 安装源...${NC}"
+sudo sed -i '/^deb cdrom:/d' /etc/apt/sources.list 2>/dev/null || true
+for f in /etc/apt/sources.list.d/*.list 2>/dev/null; do
+    [ -f "$f" ] && sudo sed -i '/^deb cdrom:/d' "$f" 2>/dev/null || true
+done
+# =================================
 
 # 检查依赖
 echo -e "${YELLOW}[1/3] 检查系统依赖...${NC}"
